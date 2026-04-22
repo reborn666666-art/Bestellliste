@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📦 Bestellliste</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f0f0f;--surf:#1a1a1a;--s2:#242424;--brd:#333;--acc:#f0e040;--teal:#40e0c0;--red:#ff5c5c;--purple:#a78bfa;--txt:#f0ece0;--dim:#777;--r:7px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;padding-bottom:80px}
+
+/* HEADER */
+header{background:var(--surf);border-bottom:2px solid var(--acc);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.h-left{display:flex;align-items:center;gap:10px}
+header h1{font-size:1.05rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--acc)}
+.badge{background:var(--acc);color:#000;font-family:'DM Mono',monospace;font-size:.65rem;padding:2px 9px;border-radius:20px;font-weight:600}
+#clock{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--dim)}
+
+/* SYNC BAR */
+#syncBar{background:var(--surf);border-bottom:1px solid var(--brd);padding:6px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-family:'DM Mono',monospace;font-size:.65rem}
+#syncStatus{color:var(--dim)}
+#btnRefresh{background:transparent;border:1px solid var(--brd);color:var(--dim);font-family:'DM Mono',monospace;font-size:.65rem;padding:3px 10px;border-radius:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+#btnSettings{background:transparent;border:none;color:var(--dim);font-size:.8rem;cursor:pointer;padding:3px 8px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+
+/* SETUP OVERLAY */
+#setupOverlay{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:500;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+#setupOverlay.hidden{display:none}
+.setup-box{background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);padding:24px;max-width:560px;width:100%}
+.setup-box h2{font-size:1rem;font-weight:800;color:var(--acc);margin-bottom:8px}
+.setup-box .intro{font-size:.8rem;color:var(--dim);line-height:1.6;margin-bottom:16px}
+.step{background:var(--s2);border-radius:var(--r);padding:13px 16px;margin-bottom:10px;font-size:.78rem;line-height:1.75;border-left:3px solid var(--acc)}
+.step strong{color:var(--txt)}
+.step code{background:#111;padding:1px 6px;border-radius:3px;font-family:'DM Mono',monospace;font-size:.75rem;color:var(--acc);word-break:break-all}
+.sfields{display:flex;flex-direction:column;gap:10px;margin:16px 0}
+.sfields label{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin-bottom:3px;display:block}
+.sfields input{width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:var(--r);color:var(--txt);font-family:'DM Mono',monospace;font-size:.82rem;padding:10px 12px;outline:none;-webkit-appearance:none}
+.sfields input:focus{border-color:var(--acc)}
+.btn-ok{display:block;width:100%;padding:14px;background:var(--acc);color:#000;border:none;border-radius:var(--r);font-family:'Syne',sans-serif;font-weight:800;font-size:.9rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;margin-top:4px}
+.btn-ok:active{opacity:.8}
+.tip{font-size:.72rem;color:var(--dim);margin-top:12px;line-height:1.55;padding:10px 12px;background:rgba(64,224,192,.06);border:1px solid rgba(64,224,192,.18);border-radius:var(--r)}
+.tip code{background:#111;padding:1px 5px;border-radius:3px;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--teal)}
+
+/* WRAP */
+.wrap{max-width:680px;margin:0 auto;padding:20px 14px}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px}
+.sbox{background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);padding:12px;text-align:center}
+.snum{font-family:'DM Mono',monospace;font-size:1.4rem;line-height:1;margin-bottom:3px}
+.snum.y{color:var(--acc)}.snum.c{color:var(--teal)}.snum.p{color:var(--purple)}.snum.r{color:var(--red)}
+.slbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;color:var(--dim)}
+
+/* FORM */
+.fcard{background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);padding:18px;margin-bottom:22px}
+.fcard-title{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin-bottom:14px}
+.edit-hint{display:none;font-size:.75rem;color:var(--teal);background:rgba(64,224,192,.08);border:1px solid rgba(64,224,192,.25);border-radius:var(--r);padding:8px 12px;margin-bottom:12px}
+.edit-hint.visible{display:block}
+
+/* GROUP BOXES */
+.glabel{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin-bottom:8px}
+.gboxes{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.gbox{display:flex;align-items:center;gap:8px;background:var(--bg);border:2px solid var(--brd);border-radius:var(--r);padding:10px 14px;cursor:pointer;flex:1;min-width:120px;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;transition:border-color .15s,background .15s}
+.gbox:hover{border-color:#555}
+.gbox.sel{border-color:var(--acc);background:rgba(240,224,64,.07)}
+.gcheck{width:18px;height:18px;flex-shrink:0;border:2px solid var(--brd);border-radius:4px;background:var(--s2);position:relative;transition:background .15s,border-color .15s}
+.gbox.sel .gcheck{background:var(--acc);border-color:var(--acc)}
+.gbox.sel .gcheck::after{content:'';position:absolute;left:4px;top:1px;width:5px;height:9px;border:2.5px solid #000;border-top:none;border-left:none;transform:rotate(45deg)}
+.gtxt{font-size:.83rem;font-weight:600;color:var(--txt)}
+.gbox.sel .gtxt{color:var(--acc)}
+
+/* INPUTS */
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.fgrid .full{grid-column:1/-1}
+input[type="text"],input[type="number"],select,textarea{width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:var(--r);color:var(--txt);font-family:'Syne',sans-serif;font-size:.88rem;padding:10px 12px;outline:none;transition:border-color .15s;-webkit-appearance:none;appearance:none}
+input[type="text"]:focus,input[type="number"]:focus,select:focus,textarea:focus{border-color:var(--acc)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23777' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+select option{background:#1a1a1a;color:var(--txt)}
+textarea{resize:vertical;min-height:56px}
+.field-wrap{position:relative}
+.field-wrap .flabel{position:absolute;top:-8px;left:10px;background:var(--bg);padding:0 4px;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);z-index:1;pointer-events:none}
+.field-wrap select{padding-top:14px}
+
+.btn-submit{display:block;width:100%;padding:14px;background:var(--acc);color:#000;border:none;border-radius:var(--r);font-family:'Syne',sans-serif;font-weight:800;font-size:.9rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.btn-submit:active{opacity:.85}
+.btn-submit.editing{background:var(--teal)}
+
+/* FILTERS */
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;align-items:center}
+.flbl{font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:var(--dim)}
+.chip{padding:5px 12px;border-radius:20px;border:1px solid var(--brd);background:transparent;color:var(--dim);font-family:'Syne',sans-serif;font-size:.72rem;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#000;font-weight:700}
+
+/* TOOLBAR */
+.toolbar{display:flex;gap:8px;justify-content:flex-end;margin-bottom:14px}
+.btn-tool{padding:5px 12px;background:transparent;border:1px solid var(--brd);color:var(--dim);font-family:'Syne',sans-serif;font-size:.72rem;border-radius:var(--r);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.btn-tool:active{border-color:var(--acc);color:var(--acc)}
+
+/* SECTION */
+.sec{font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.sec::after{content:'';flex:1;height:1px;background:var(--brd)}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px 20px;color:var(--dim);border:1px dashed var(--brd);border-radius:var(--r);font-size:.84rem}
+.empty .ico{font-size:2rem;margin-bottom:8px}
+
+/* CARDS */
+.card{background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);margin-bottom:8px;overflow:hidden;animation:pop .2s ease}
+@keyframes pop{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+/* Status: Offen – teal left stripe */
+.card.status-offen{border-left:4px solid var(--teal);background:rgba(64,224,192,.04)}
+/* Status: Bestellt – yellow left stripe */
+.card.status-bestellt{border-left:4px solid var(--acc);background:rgba(240,224,64,.04);opacity:.8}
+.card.status-bestellt .iname{text-decoration:line-through;color:var(--dim)}
+/* Status: Angekommen – green left stripe + stronger tint */
+.card.status-angekommen{border-left:4px solid #22c55e;background:rgba(34,197,94,.06);opacity:.85}
+/* Status badge tags */
+.tag.st-offen{color:var(--teal);border-color:var(--teal);background:rgba(64,224,192,.1)}
+.tag.st-bestellt{color:var(--acc);border-color:var(--acc);background:rgba(240,224,64,.1)}
+.tag.st-angekommen{color:#22c55e;border-color:#22c55e;background:rgba(34,197,94,.12)}
+.pbar{height:3px}
+.pbar.hoch{background:var(--red)}.pbar.mittel{background:var(--acc)}.pbar.niedrig{background:var(--teal)}
+.cbody{padding:12px 14px}
+.ctop{display:flex;align-items:flex-start;gap:10px}
+.cinfo{flex:1;min-width:0}
+.iname{font-weight:700;font-size:.92rem;margin-bottom:5px;word-break:break-word}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px}
+.tag{font-family:'DM Mono',monospace;font-size:.62rem;padding:2px 7px;border-radius:4px;background:var(--s2);border:1px solid var(--brd);color:var(--dim)}
+.tag.hoch{color:var(--red);border-color:var(--red)}.tag.mittel{color:var(--acc);border-color:var(--acc)}.tag.niedrig{color:var(--teal);border-color:var(--teal)}
+.tag.grp{color:#aaa;border-color:#444}
+.tag.proj{color:#c084fc;border-color:#7c3aed}
+.cnote{font-size:.75rem;color:var(--dim);margin-top:5px;line-height:1.4}
+.cactions{display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+.cbtn{padding:5px 10px;font-family:'Syne',sans-serif;font-weight:700;font-size:.68rem;border-radius:4px;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation;border:none}
+.cbtn:active{opacity:.75}
+.cbtn-offen{background:var(--teal);color:#000}
+.cbtn-bestellt{background:var(--purple);color:#000}
+.cbtn-angekommen{background:var(--s2);color:var(--dim);border:1px solid var(--brd) !important}
+.cbtn-edit{background:transparent;color:var(--acc);border:1px solid var(--acc) !important}
+.cbtn-del{background:transparent;color:var(--red);border:1px solid var(--red) !important}
+.cfoot{display:flex;flex-wrap:wrap;gap:6px;justify-content:space-between;padding-top:8px;margin-top:8px;border-top:1px solid var(--brd);font-family:'DM Mono',monospace;font-size:.62rem;color:var(--dim)}
+.cfoot .edited{color:#555;font-style:italic}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--acc);color:#000;padding:10px 22px;border-radius:30px;font-weight:700;font-size:.82rem;z-index:999;pointer-events:none;transition:transform .3s ease;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+@media(max-width:500px){
+  .fgrid{grid-template-columns:1fr}
+  .fgrid .full{grid-column:1}
+  .gboxes{flex-direction:column}
+  .gbox{min-width:unset}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  #clock{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- SETUP OVERLAY (hidden by default, shown via JS when not configured) -->
+<div id="setupOverlay" class="hidden">
+  <div class="setup-box">
+    <h2>⚙️ Einmalige Einrichtung</h2>
+    <p class="intro">Für die Team-Synchronisierung wird ein kostenloser Online-Speicher (JSONBin.io) benötigt. Diese Einrichtung muss nur <strong>einmal</strong> von einer Person gemacht werden – danach einfach die fertige Datei ans Team weitergeben.</p>
+
+    <div class="step"><strong>Schritt 1 – Account anlegen</strong><br>
+    Gehe auf <strong>jsonbin.io</strong> → oben rechts <strong>„Sign Up"</strong> → E-Mail &amp; Passwort eingeben → registrieren → E-Mail bestätigen.</div>
+
+    <div class="step"><strong>Schritt 2 – API Key erstellen</strong><br>
+    Nach dem Login: oben rechts auf dein <strong>Profilbild</strong> klicken → <strong>„API Keys"</strong> → <strong>„+ CREATE API KEY"</strong> → beliebigen Namen eingeben (z.B. <code>Bestellliste</code>) → <strong>„Create"</strong> → den erscheinenden Key (beginnt mit <code>$2a$10$</code>) <strong>vollständig kopieren</strong>.</div>
+
+    <div class="step"><strong>Schritt 3 – Bin (Datenspeicher) erstellen</strong><br>
+    Im linken Menü auf <strong>„Bins"</strong> klicken → <strong>„+ CREATE BIN"</strong> → im Textfeld alles löschen und genau diesen Text einfügen:<br><br>
+    <code>{"orders":[]}</code><br><br>
+    → <strong>„Create Bin"</strong> klicken → die <strong>Bin ID</strong> erscheint oben in der URL oder im Bin-Header (lange Zeichenkette, z.B. <code>6849abc123def456</code>) → <strong>kopieren</strong>.</div>
+
+    <div class="step"><strong>Schritt 4 – Hier eintragen und speichern</strong><br>
+    API Key und Bin ID unten eintragen → <strong>„Speichern &amp; Starten"</strong> klicken. Die Datei ist dann für das ganze Team einsatzbereit.</div>
+
+    <div class="sfields">
+      <div>
+        <label>Master API Key</label>
+        <input type="text" id="inputApiKey" placeholder="$2a$10$..." autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div>
+        <label>Bin ID</label>
+        <input type="text" id="inputBinId" placeholder="6849abc123..." autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+    </div>
+
+    <button class="btn-ok" id="btnSetupOk" type="button">Speichern &amp; Starten</button>
+
+    <div class="tip">💡 <strong>Damit niemand etwas eingeben muss:</strong> Öffne die HTML-Datei in einem Texteditor (Rechtsklick → „Öffnen mit" → Notepad). Suche nach <code>PRESET_API_KEY</code> und <code>PRESET_BIN_ID</code> und trage dort deine Werte ein. Dann speichern und die Datei ans Team schicken – fertig.</div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="h-left">
+    <span>📦</span>
+    <h1>Bestellliste</h1>
+    <span class="badge" id="badgeOpen">0 offen</span>
+  </div>
+  <span id="clock"></span>
+</header>
+
+<!-- SYNC BAR -->
+<div id="syncBar">
+  <span id="syncStatus">Nicht verbunden</span>
+  <div style="display:flex;gap:6px;align-items:center">
+    <button id="btnRefresh" type="button">⟳ Aktualisieren</button>
+    <button id="btnSettings" type="button" title="Einstellungen">⚙️</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="sbox"><div class="snum y" id="sOpen">0</div><div class="slbl">Offen</div></div>
+    <div class="sbox"><div class="snum c" id="sDone">0</div><div class="slbl">Bestellt</div></div>
+    <div class="sbox"><div class="snum p" id="sArrived">0</div><div class="slbl">Angekommen</div></div>
+    <div class="sbox"><div class="snum r" id="sUrg">0</div><div class="slbl">Dringend</div></div>
+  </div>
+
+  <!-- Form -->
+  <div class="fcard" id="fcard">
+    <div class="fcard-title" id="formTitle">+ Neues Material eintragen</div>
+    <div class="edit-hint" id="editHint">✏️ Bearbeitungsmodus – Änderungen vornehmen und speichern</div>
+
+    <div class="glabel">Gruppe *</div>
+    <div class="gboxes" id="gboxes">
+      <div class="gbox" data-group="Mittelstufe"><div class="gcheck"></div><span class="gtxt">Mittelstufe</span></div>
+      <div class="gbox" data-group="Chemie Oberstufe"><div class="gcheck"></div><span class="gtxt">Chemie Oberstufe</span></div>
+      <div class="gbox" data-group="Biotech"><div class="gcheck"></div><span class="gtxt">Biotech</span></div>
+    </div>
+
+    <div class="fgrid">
+      <input class="full" type="text" id="fName" placeholder="Material / Artikelname *" autocomplete="off">
+      <input type="number" id="fQty" placeholder="Menge" min="1">
+      <input type="text" id="fUnit" placeholder="Einheit (Stk, kg, Pkg …)" autocomplete="off">
+      <input type="text" id="fCat" placeholder="Kategorie (z.B. Chemikalien)" autocomplete="off">
+      <div class="field-wrap">
+        <div class="flabel">Priorität</div>
+        <select id="fPrio">
+          <option value="niedrig">🟢 Niedrig</option>
+          <option value="mittel" selected>🟡 Mittel</option>
+          <option value="hoch">🔴 Dringend</option>
+        </select>
+      </div>
+      <input type="text" id="fBy" placeholder="Dein Name *" autocomplete="off">
+      <input class="full" type="text" id="fProj" placeholder="Projekt (optional)" autocomplete="off">
+      <textarea class="full" id="fNote" placeholder="Anmerkung / Hinweis (optional)"></textarea>
+    </div>
+
+    <button class="btn-submit" id="btnSubmit" type="button">Eintragen</button>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <span class="flbl">Zeige:</span>
+    <button class="chip on" type="button" data-f="all">Alle</button>
+    <button class="chip" type="button" data-f="open">Offen</button>
+    <button class="chip" type="button" data-f="bestellt">Bestellt</button>
+    <button class="chip" type="button" data-f="angekommen">✅ Angekommen</button>
+    <button class="chip" type="button" data-f="hoch">🔴 Dringend</button>
+    <button class="chip" type="button" data-f="mittelstufe">Mittelstufe</button>
+    <button class="chip" type="button" data-f="chemie">Chemie OS</button>
+    <button class="chip" type="button" data-f="biotech">Biotech</button>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <button class="btn-tool" type="button" id="btnCSV">📥 CSV Export</button>
+    <button class="btn-tool" type="button" id="btnClear">🗑 Erledigte löschen</button>
+  </div>
+
+  <div class="sec">Bestellungen</div>
+  <div id="list"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* Zugangsdaten hier eintragen – dann braucht niemand das Setup-Fenster */
+var PRESET_API_KEY = '$2a$10$QcXtoCCyv617ZLs.ouRXqetHxEAQ.wLeNiymCluFhmsBh6H8zJnna';  /* Beispiel: '$2a$10$XYZ...' */
+var PRESET_BIN_ID  = '69e8ec65856a6821895f8639';  /* Beispiel: '6849abc123def456' */
+
+document.addEventListener('DOMContentLoaded', function() {
+
+  /* ── Konfiguration ── */
+  var CFG_KEY  = 'bl_cfg_v1';
+  var BIN_BASE = 'https://api.jsonbin.io/v3/b/';
+
+  var cfg = { apiKey: PRESET_API_KEY, binId: PRESET_BIN_ID };
+  try {
+    var stored = localStorage.getItem(CFG_KEY);
+    if (stored) {
+      var p = JSON.parse(stored);
+      if (!cfg.apiKey) cfg.apiKey = p.apiKey || '';
+      if (!cfg.binId)  cfg.binId  = p.binId  || '';
+    }
+  } catch(e) {}
+
+  function saveCfg() {
+    try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); } catch(e) {}
+  }
+
+  /* ── State ── */
+  var orders      = [];
+  var curFilter   = 'all';
+  var editingId   = null;
+  var toastTimer  = null;
+  var syncing     = false;
+  var refreshInt  = null;
+  var actionBusy  = false;  /* debounce for all touch/click handlers */
+
+  /* ── Debounce helper (prevents double-fire on mobile) ── */
+  function once(fn) {
+    return function(e) {
+      e.preventDefault();
+      if (actionBusy) return;
+      actionBusy = true;
+      setTimeout(function() { actionBusy = false; }, 600);
+      fn(e);
+    };
+  }
+
+  /* ── Setup overlay ── */
+  function showSetup() {
+    document.getElementById('inputApiKey').value = cfg.apiKey || '';
+    document.getElementById('inputBinId').value  = cfg.binId  || '';
+    document.getElementById('setupOverlay').classList.remove('hidden');
+  }
+  function hideSetup() {
+    document.getElementById('setupOverlay').classList.add('hidden');
+  }
+
+  if (!cfg.apiKey || !cfg.binId) showSetup();
+
+  document.getElementById('btnSetupOk').addEventListener('click', once(function() {
+    var key = document.getElementById('inputApiKey').value.replace(/\s/g,'');
+    var bin = document.getElementById('inputBinId').value.replace(/\s/g,'');
+    if (!key || !bin) { alert('Bitte beide Felder ausfüllen.'); return; }
+    cfg.apiKey = key;
+    cfg.binId  = bin;
+    saveCfg();
+    hideSetup();
+    remoteLoad();
+    startRefresh();
+  }));
+
+  document.getElementById('btnSettings').addEventListener('click', once(function() {
+    showSetup();
+  }));
+
+  /* ── Sync status display ── */
+  function setStatus(msg, color) {
+    var el = document.getElementById('syncStatus');
+    if (el) { el.textContent = msg; el.style.color = color || '#777'; }
+  }
+
+  /* ── Remote load ── */
+  function remoteLoad() {
+    var key = cfg.apiKey.replace(/\s/g,'');
+    var bin = cfg.binId.replace(/\s/g,'');
+    if (!key || !bin) {
+      setStatus('⚠ Nicht konfiguriert – ⚙️ drücken', '#ff5c5c');
+      return;
+    }
+    setStatus('⟳ Lade …', '#f0e040');
+    fetch(BIN_BASE + bin + '/latest', {
+      headers: { 'X-Master-Key': key }
+    })
+    .then(function(r) {
+      if (r.status === 401) throw new Error('401 – API Key ungültig oder falscher Key-Typ (Master Key verwenden)');
+      if (r.status === 403) throw new Error('403 – Zugriff verweigert (Bin auf "Public" stellen oder Master Key prüfen)');
+      if (r.status === 404) throw new Error('404 – Bin ID nicht gefunden');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      if (data.record && Array.isArray(data.record.orders)) {
+        orders = data.record.orders;
+        render();
+      }
+      setStatus('✔ Sync ' + fmtTs(Date.now()), '#40e0c0');
+    })
+    .catch(function(err) {
+      setStatus('⚠ ' + (err.message || 'Verbindungsfehler'), '#ff5c5c');
+    });
+  }
+
+  /* ── Remote save ── */
+  function remoteSave() {
+    var key = cfg.apiKey.replace(/\s/g,'');
+    var bin = cfg.binId.replace(/\s/g,'');
+    if (!key || !bin || syncing) return;
+    syncing = true;
+    setStatus('⟳ Speichere …', '#f0e040');
+    fetch(BIN_BASE + bin, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Master-Key': key },
+      body:    JSON.stringify({ orders: orders })
+    })
+    .then(function(r) {
+      if (r.status === 401) throw new Error('401 – API Key ungültig');
+      if (r.status === 403) throw new Error('403 – Zugriff verweigert');
+      if (r.status === 404) throw new Error('404 – Bin nicht gefunden');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function() {
+      syncing = false;
+      setStatus('✔ Gespeichert ' + fmtTs(Date.now()), '#40e0c0');
+    })
+    .catch(function(err) {
+      syncing = false;
+      setStatus('⚠ Speicherfehler: ' + (err.message || ''), '#ff5c5c');
+    });
+  }
+
+  function startRefresh() {
+    clearInterval(refreshInt);
+    refreshInt = setInterval(remoteLoad, 30000);
+  }
+
+  /* ── Helpers ── */
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function fmtTs(ts) {
+    if (!ts) return '';
+    var d = new Date(ts);
+    return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})
+      + ', ' + d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) + ' Uhr';
+  }
+  function getStatus(o) {
+    if (o.status) return o.status;
+    return o.done ? 'bestellt' : 'offen';
+  }
+
+  /* ── Clock ── */
+  function tick() {
+    var el = document.getElementById('clock');
+    if (!el) return;
+    var d = new Date();
+    el.textContent = d.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',year:'2-digit'})
+      + ' ' + d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  }
+  tick();
+  setInterval(tick, 30000);
+
+  /* ── Toast ── */
+  function toast(msg) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function() { el.classList.remove('show'); }, 2600);
+  }
+
+  /* ── Group boxes ── */
+  function getGroups() {
+    var r = [];
+    var boxes = document.querySelectorAll('#gboxes .gbox');
+    for (var i = 0; i < boxes.length; i++) {
+      if (boxes[i].classList.contains('sel')) r.push(boxes[i].getAttribute('data-group'));
+    }
+    return r;
+  }
+  function setGroups(list) {
+    var boxes = document.querySelectorAll('#gboxes .gbox');
+    for (var i = 0; i < boxes.length; i++) {
+      var g = boxes[i].getAttribute('data-group');
+      boxes[i].classList[list && list.indexOf(g) !== -1 ? 'add' : 'remove']('sel');
+    }
+  }
+  function clearGroups() {
+    var boxes = document.querySelectorAll('#gboxes .gbox');
+    for (var i = 0; i < boxes.length; i++) boxes[i].classList.remove('sel');
+  }
+
+  /* Wire group box clicks with debounce */
+  var gboxEls = document.querySelectorAll('#gboxes .gbox');
+  for (var gi = 0; gi < gboxEls.length; gi++) {
+    (function(box) {
+      box.addEventListener('click', once(function() { box.classList.toggle('sel'); }));
+    })(gboxEls[gi]);
+  }
+
+  /* ── Form ── */
+  function clearForm() {
+    document.getElementById('fName').value  = '';
+    document.getElementById('fQty').value   = '';
+    document.getElementById('fUnit').value  = '';
+    document.getElementById('fCat').value   = '';
+    document.getElementById('fBy').value    = '';
+    document.getElementById('fProj').value  = '';
+    document.getElementById('fNote').value  = '';
+    document.getElementById('fPrio').value  = 'mittel';
+    clearGroups();
+    editingId = null;
+    document.getElementById('btnSubmit').textContent = 'Eintragen';
+    document.getElementById('btnSubmit').classList.remove('editing');
+    document.getElementById('formTitle').textContent = '+ Neues Material eintragen';
+    document.getElementById('editHint').classList.remove('visible');
+  }
+
+  /* ── Submit (add or update) ── */
+  function submitForm() {
+    var name   = document.getElementById('fName').value.trim();
+    var byName = document.getElementById('fBy').value.trim();
+    var qty    = document.getElementById('fQty').value.trim() || '1';
+    var groups = getGroups();
+
+    if (!name)          { toast('⚠️ Bitte Artikelname eingeben!');          return; }
+    if (!byName)        { toast('⚠️ Bitte deinen Namen eingeben!');          return; }
+    if (!groups.length) { toast('⚠️ Bitte mindestens eine Gruppe wählen!'); return; }
+
+    var now = Date.now();
+
+    if (editingId !== null) {
+      for (var i = 0; i < orders.length; i++) {
+        if (orders[i].id === editingId) {
+          orders[i].name     = name;
+          orders[i].qty      = qty;
+          orders[i].unit     = document.getElementById('fUnit').value.trim();
+          orders[i].cat      = document.getElementById('fCat').value.trim();
+          orders[i].prio     = document.getElementById('fPrio').value;
+          orders[i].by       = byName;
+          orders[i].proj     = document.getElementById('fProj').value.trim();
+          orders[i].note     = document.getElementById('fNote').value.trim();
+          orders[i].groups   = groups;
+          orders[i].editedTs = now;
+          break;
+        }
+      }
+      toast('✏️ Eintrag aktualisiert');
+    } else {
+      orders.unshift({
+        id:       now,
+        name:     name,
+        qty:      qty,
+        unit:     document.getElementById('fUnit').value.trim(),
+        cat:      document.getElementById('fCat').value.trim(),
+        prio:     document.getElementById('fPrio').value,
+        by:       byName,
+        proj:     document.getElementById('fProj').value.trim(),
+        note:     document.getElementById('fNote').value.trim(),
+        groups:   groups,
+        status:   'offen',
+        done:     false,
+        ts:       now,
+        editedTs: null
+      });
+      toast('✅ Eingetragen: ' + name);
+    }
+
+    remoteSave();
+    render();
+    clearForm();
+  }
+
+  document.getElementById('btnSubmit').addEventListener('click', once(submitForm));
+
+  /* ── Edit ── */
+  function startEdit(id) {
+    for (var i = 0; i < orders.length; i++) {
+      if (orders[i].id === id) {
+        var o = orders[i];
+        editingId = id;
+        document.getElementById('fName').value  = o.name  || '';
+        document.getElementById('fQty').value   = o.qty   || '1';
+        document.getElementById('fUnit').value  = o.unit  || '';
+        document.getElementById('fCat').value   = o.cat   || '';
+        document.getElementById('fBy').value    = o.by    || '';
+        document.getElementById('fProj').value  = o.proj  || '';
+        document.getElementById('fNote').value  = o.note  || '';
+        document.getElementById('fPrio').value  = o.prio  || 'mittel';
+        setGroups(o.groups || []);
+        document.getElementById('btnSubmit').textContent = '💾 Speichern';
+        document.getElementById('btnSubmit').classList.add('editing');
+        document.getElementById('formTitle').textContent = '✏️ Eintrag bearbeiten';
+        document.getElementById('editHint').classList.add('visible');
+        document.getElementById('fcard').scrollIntoView({behavior:'smooth',block:'start'});
+        toast('✏️ Bearbeitungsmodus aktiv');
+        return;
+      }
+    }
+  }
+
+  /* ── Cycle status ── */
+  function cycleStatus(id) {
+    for (var i = 0; i < orders.length; i++) {
+      if (orders[i].id === id) {
+        var cur  = getStatus(orders[i]);
+        var next = cur === 'offen' ? 'bestellt' : cur === 'bestellt' ? 'angekommen' : 'offen';
+        orders[i].status = next;
+        orders[i].done   = (next !== 'offen');
+        remoteSave();
+        render();
+        var msgs = { bestellt: '📦 Als bestellt markiert', angekommen: '✅ Angekommen!', offen: '↩️ Zurück auf Offen' };
+        toast(msgs[next]);
+        return;
+      }
+    }
+  }
+
+  /* ── Delete ── */
+  function delItem(id) {
+    orders = orders.filter(function(x) { return x.id !== id; });
+    if (editingId === id) clearForm();
+    remoteSave();
+    render();
+    toast('🗑 Eintrag gelöscht');
+  }
+
+  /* ── Render ── */
+  function render() {
+    var prioOrd = { hoch: 0, mittel: 1, niedrig: 2 };
+    var list = [];
+    for (var i = 0; i < orders.length; i++) {
+      var o = orders[i];
+      var st = getStatus(o);
+      var show = false;
+      if      (curFilter === 'all')         show = true;
+      else if (curFilter === 'open')        show = st === 'offen';
+      else if (curFilter === 'bestellt')    show = st === 'bestellt';
+      else if (curFilter === 'angekommen')  show = st === 'angekommen';
+      else if (curFilter === 'hoch')        show = o.prio === 'hoch' && st === 'offen';
+      else if (curFilter === 'mittelstufe') show = (o.groups||[]).indexOf('Mittelstufe')      !== -1;
+      else if (curFilter === 'chemie')      show = (o.groups||[]).indexOf('Chemie Oberstufe') !== -1;
+      else if (curFilter === 'biotech')     show = (o.groups||[]).indexOf('Biotech')          !== -1;
+      if (show) list.push(o);
+    }
+    list.sort(function(a, b) {
+      var sa = getStatus(a), sb = getStatus(b);
+      var ord = { offen: 0, bestellt: 1, angekommen: 2 };
+      if (ord[sa] !== ord[sb]) return ord[sa] - ord[sb];
+      if (prioOrd[a.prio] !== prioOrd[b.prio]) return prioOrd[a.prio] - prioOrd[b.prio];
+      return b.ts - a.ts;
+    });
+
+    /* Stats */
+    var cOpen = 0, cBest = 0, cArr = 0, cUrg = 0;
+    for (var j = 0; j < orders.length; j++) {
+      var jst = getStatus(orders[j]);
+      if (jst === 'offen')      cOpen++;
+      else if (jst === 'bestellt')   cBest++;
+      else if (jst === 'angekommen') cArr++;
+      if (orders[j].prio === 'hoch' && jst === 'offen') cUrg++;
+    }
+    document.getElementById('sOpen').textContent    = cOpen;
+    document.getElementById('sDone').textContent    = cBest;
+    document.getElementById('sArrived').textContent = cArr;
+    document.getElementById('sUrg').textContent     = cUrg;
+    document.getElementById('badgeOpen').textContent = cOpen + ' offen';
+
+    var cont = document.getElementById('list');
+    if (!list.length) {
+      cont.innerHTML = '<div class="empty"><div class="ico">📭</div>Keine Einträge vorhanden.</div>';
+      return;
+    }
+
+    var prioLabel = { hoch: '🔴 Dringend', mittel: '🟡 Mittel', niedrig: '🟢 Niedrig' };
+    var stLabel   = { offen: '⬜ Offen', bestellt: '🟡 Bestellt', angekommen: '🟢 Angekommen' };
+    var btnLabel  = { offen: '✔ Bestellt', bestellt: '✅ Angekommen', angekommen: '↩️ Offen' };
+    var btnCls    = { offen: 'cbtn cbtn-offen', bestellt: 'cbtn cbtn-bestellt', angekommen: 'cbtn cbtn-angekommen' };
+
+    var html = '';
+    for (var k = 0; k < list.length; k++) {
+      var o   = list[k];
+      var st  = getStatus(o);
+      var grpH = '';
+      for (var g = 0; g < (o.groups||[]).length; g++) {
+        grpH += '<span class="tag grp">' + esc(o.groups[g]) + '</span>';
+      }
+      html += '<div class="card status-' + st + '">'
+            +   '<div class="pbar ' + esc(o.prio) + '"></div>'
+            +   '<div class="cbody">'
+            +     '<div class="ctop">'
+            +       '<div class="cinfo">'
+            +         '<div class="iname">' + esc(o.name) + '</div>'
+            +         '<div class="tags">'
+            +           '<span class="tag st-' + st + '">' + stLabel[st] + '</span>'
+            +           '<span class="tag">' + esc(o.qty) + (o.unit ? ' ' + esc(o.unit) : '') + '</span>'
+            +           (o.cat  ? '<span class="tag">' + esc(o.cat) + '</span>' : '')
+            +           '<span class="tag ' + esc(o.prio) + '">' + prioLabel[o.prio] + '</span>'
+            +           grpH
+            +           (o.proj ? '<span class="tag proj">📁 ' + esc(o.proj) + '</span>' : '')
+            +         '</div>'
+            +         (o.note ? '<div class="cnote">💬 ' + esc(o.note) + '</div>' : '')
+            +       '</div>'
+            +       '<div class="cactions">'
+            +         '<button class="' + btnCls[st] + '" data-action="status" data-id="' + o.id + '">' + btnLabel[st] + '</button>'
+            +         '<button class="cbtn cbtn-edit" data-action="edit" data-id="' + o.id + '">✏️</button>'
+            +         '<button class="cbtn cbtn-del"  data-action="del"  data-id="' + o.id + '">✕</button>'
+            +       '</div>'
+            +     '</div>'
+            +     '<div class="cfoot">'
+            +       '<span>👤 ' + esc(o.by) + '</span>'
+            +       '<span>📅 ' + fmtTs(o.ts) + '</span>'
+            +       (o.editedTs ? '<span class="edited">Bearbeitet: ' + fmtTs(o.editedTs) + '</span>' : '')
+            +     '</div>'
+            +   '</div>'
+            + '</div>';
+    }
+    cont.innerHTML = html;
+  }
+
+  /* ── Card action delegation ── */
+  document.getElementById('list').addEventListener('click', once(function(e) {
+    var btn = e.target;
+    if (!btn.getAttribute('data-action') && btn.parentElement) btn = btn.parentElement;
+    var action = btn.getAttribute('data-action');
+    var id     = parseInt(btn.getAttribute('data-id'), 10);
+    if (!action || isNaN(id)) return;
+    if (action === 'status') cycleStatus(id);
+    if (action === 'edit')   startEdit(id);
+    if (action === 'del')    delItem(id);
+  }));
+
+  /* ── Filter chips ── */
+  var chips = document.querySelectorAll('.chip');
+  for (var ci = 0; ci < chips.length; ci++) {
+    (function(chip) {
+      chip.addEventListener('click', once(function() {
+        curFilter = chip.getAttribute('data-f');
+        for (var x = 0; x < chips.length; x++) chips[x].classList.remove('on');
+        chip.classList.add('on');
+        render();
+      }));
+    })(chips[ci]);
+  }
+
+  /* ── Refresh ── */
+  document.getElementById('btnRefresh').addEventListener('click', once(function() {
+    remoteLoad();
+  }));
+
+  /* ── CSV export ── */
+  document.getElementById('btnCSV').addEventListener('click', once(function() {
+    var rows = [['Artikel','Menge','Einheit','Kategorie','Gruppen','Projekt','Priorität','Von','Eingetragen','Bearbeitet','Status','Anmerkung']];
+    for (var i = 0; i < orders.length; i++) {
+      var o   = orders[i];
+      var st  = getStatus(o);
+      var stL = st === 'angekommen' ? 'Angekommen' : st === 'bestellt' ? 'Bestellt' : 'Offen';
+      rows.push([o.name, o.qty, o.unit||'', o.cat||'', (o.groups||[]).join(' | '), o.proj||'',
+                 o.prio, o.by, fmtTs(o.ts), o.editedTs ? fmtTs(o.editedTs) : '', stL, o.note||'']);
+    }
+    var csv = '';
+    for (var r = 0; r < rows.length; r++) {
+      var cols = [];
+      for (var c = 0; c < rows[r].length; c++) cols.push('"' + String(rows[r][c]).replace(/"/g,'""') + '"');
+      csv += cols.join(';') + '\n';
+    }
+    var blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8;'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'Bestellliste_' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    toast('📥 CSV exportiert');
+  }));
+
+  /* ── Clear done ── */
+  document.getElementById('btnClear').addEventListener('click', once(function() {
+    var n = orders.filter(function(x) { return getStatus(x) !== 'offen'; }).length;
+    if (!n) { toast('Keine erledigten Einträge vorhanden'); return; }
+    orders = orders.filter(function(x) { return getStatus(x) === 'offen'; });
+    remoteSave(); render();
+    toast('🗑 ' + n + ' Einträge gelöscht');
+  }));
+
+  /* ── Init ── */
+  if (cfg.apiKey && cfg.binId) {
+    remoteLoad();
+    startRefresh();
+  } else {
+    render();
+  }
+
+}); /* end DOMContentLoaded */
+</script>
+</body>
+</html>
